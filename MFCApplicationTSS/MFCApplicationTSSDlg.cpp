@@ -8,30 +8,21 @@
 #include "MFCApplicationTSSDlg.h"
 #include "afxdialogex.h"
 
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
 
-class CStaticImage : public CStatic
-{
-public:
-	void DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)override;
-};
-class CStaticList :public CStatic
-{
-public:
-	void DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct) override;
-};
 
 void CStaticImage::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 {
-	//GetParent()->SendMessage(CMFCApplicationTSSDlg::WM_DRAW_IMAGE,(WPARAM)lpDrawItemStruct)
+	GetParent()->SendMessage(WM_DRAW_IMAGE, (WPARAM)lpDrawItemStruct);
 }
 
-void CStaticList::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
+void CStaticHist::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 {
-
+	GetParent()->SendMessage(WM_DRAW_HISTOGRAM, (WPARAM)lpDrawItemStruct);
 }
 
 // CAboutDlg dialog used for App About
@@ -94,7 +85,8 @@ BEGIN_MESSAGE_MAP(CMFCApplicationTSSDlg, CDialogEx)
 	ON_COMMAND(ID_FILE_OPEN32771, &CMFCApplicationTSSDlg::OnFileOpen32771)
 	ON_COMMAND(ID_FILE_CLOSE32772, &CMFCApplicationTSSDlg::OnFileClose32772)
 	ON_WM_SIZE()
-	//ON_MESSAGE(WM_DRAW_IMAGE, &CMFCApplicationTSSDlg::WM_DRAW_IMAGE)
+	ON_MESSAGE(WM_DRAW_IMAGE, OnDrawImage)
+	ON_MESSAGE(WM_DRAW_HISTOGRAM, OnDrawHist)
 END_MESSAGE_MAP()
 
 
@@ -191,8 +183,51 @@ HCURSOR CMFCApplicationTSSDlg::OnQueryDragIcon()
 
 
 
+void CMFCApplicationTSSDlg::DisplayFiles()
+{
+	m_fileList.DeleteAllItems();
+
+	for (int i = 0; i < m_names.size(); ++i)
+	{
+		m_fileList.InsertItem(i, m_names[i]); 
+	}
+}
+
 void CMFCApplicationTSSDlg::OnFileOpen32771()
 {
+	TCHAR szFilters[] = _T("Image Files (*.bmp;*.jpeg;*.jpg;*.png)|*.bmp;*.jpeg;*.jpg;*.png||");
+
+	TCHAR szInitialDir[MAX_PATH];
+	GetCurrentDirectory(MAX_PATH, szInitialDir);
+
+	CFileDialog dlg(TRUE, _T(""), _T(""), OFN_FILEMUSTEXIST | OFN_ALLOWMULTISELECT, szFilters);
+	dlg.m_ofn.lpstrInitialDir = szInitialDir; 
+
+	if (dlg.DoModal() == IDOK)
+	{
+		POSITION pos(dlg.GetStartPosition());
+		while (pos)
+		{
+			CString filePath = dlg.GetNextPathName(pos);
+			CString fileName;
+
+			if (std::find(m_paths.begin(), m_paths.end(), filePath) == m_paths.end())
+            {
+                m_paths.push_back(filePath);
+
+                int posOfBackslash = filePath.ReverseFind(_T('\\'));
+                fileName = filePath.Right(filePath.GetLength() - posOfBackslash - 1);
+
+                m_names.push_back(fileName);
+            }
+		}
+		DisplayFiles();
+	}
+	else
+	{
+		return;
+	}
+	
 	// TODO: Add your command handler code here
 }
 
@@ -220,8 +255,20 @@ void CMFCApplicationTSSDlg::OnSize(UINT nType, int cx, int cy)
 	
 }
 
-
-afx_msg LRESULT CMFCApplicationTSSDlg::WM_DRAW_IMAGE(WPARAM wParam, LPARAM lParam)
+LRESULT CMFCApplicationTSSDlg::OnDrawImage(WPARAM wParam, LPARAM lParam)
 {
-	return 0;
+	LPDRAWITEMSTRUCT st = (LPDRAWITEMSTRUCT)wParam;
+
+	//CDC* pDC = CDC::FromHandle(st->hDC);
+	auto gr = Gdiplus::Graphics::FromHDC(st->hDC);
+	//gr -> DrawImage()
+
+
+	return S_OK;
 }
+
+LRESULT CMFCApplicationTSSDlg::OnDrawHist(WPARAM wParam, LPARAM lParam)
+{
+	return S_OK;
+}
+

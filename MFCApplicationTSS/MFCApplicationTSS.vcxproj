@@ -20,7 +20,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
-    <ProjectGuid>{218DA56B-BF58-4D07-846C-95E5BE6985FE}</ProjectGuid>
+    <ProjectGuid>{BED75309-FA42-4101-9ACA-2A911F14D934}</ProjectGuid>
     <Keyword>MFCProj</Keyword>
     <RootNamespace>MFCApplicationTSS</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>

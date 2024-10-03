@@ -1,8 +1,29 @@
 
 // MFCApplicationTSSDlg.h : header file
 //
+#include <iostream>
+#include <vector>
+#include <string>
 
 #pragma once
+
+enum
+{
+	WM_DRAW_IMAGE = WM_USER + 1,
+	WM_DRAW_HISTOGRAM
+};
+
+
+class CStaticImage : public CStatic
+{
+public:
+	void DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)override;
+};
+class CStaticHist :public CStatic
+{
+public:
+	void DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct) override;
+};
 
 
 // CMFCApplicationTSSDlg dialog
@@ -35,13 +56,18 @@ public:
 	CListCtrl m_fileList;
 	CRect m_rect;
 	CRect m_rectFileList;
-	CStatic m_staticHistogram;
+	CStaticHist m_staticHistogram;
 	CRect m_rectHistogram;
 	CRect m_rectImage;
-	CStatic m_staticImage;
+	CStaticImage m_staticImage;
+	std::vector<CString> m_paths;
+	std::vector<CString> m_names;
+
+	void DisplayFiles();
+
 	afx_msg void OnFileOpen32771();
 	afx_msg void OnFileClose32772();
 	afx_msg void OnSize(UINT nType, int cx, int cy);
-protected:
-	afx_msg LRESULT WM_DRAW_IMAGE(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnDrawImage(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnDrawHist(WPARAM wParam, LPARAM lParam);
 };
