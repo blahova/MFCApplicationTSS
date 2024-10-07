@@ -227,14 +227,31 @@ void CMFCApplicationTSSDlg::OnFileOpen32771()
 	{
 		return;
 	}
-	
-	// TODO: Add your command handler code here
 }
 
 
 void CMFCApplicationTSSDlg::OnFileClose32772()
 {
-	// TODO: Add your command handler code here
+	POSITION pos = m_fileList.GetFirstSelectedItemPosition();
+	if (pos == NULL)
+	{
+		AfxMessageBox(_T("No file was selected."));
+		return;
+	}
+
+	int selectedIndex = m_fileList.GetNextSelectedItem(pos);
+	CString fileName = m_names[selectedIndex];
+	CString message;
+	message.Format(_T("Do you want to delete file: %s?"), fileName);
+	int response = AfxMessageBox(message, MB_YESNO | MB_ICONQUESTION);
+
+	if (response == IDYES)
+	{
+		m_paths.erase(m_paths.begin() + selectedIndex);
+		m_names.erase(m_names.begin() + selectedIndex);
+
+		DisplayFiles(); 
+	}
 }
 
 
