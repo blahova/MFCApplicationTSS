@@ -87,6 +87,7 @@ BEGIN_MESSAGE_MAP(CMFCApplicationTSSDlg, CDialogEx)
 	ON_WM_SIZE()
 	ON_MESSAGE(WM_DRAW_IMAGE, OnDrawImage)
 	ON_MESSAGE(WM_DRAW_HISTOGRAM, OnDrawHist)
+	ON_NOTIFY(LVN_ITEMCHANGED, IDC_FILE_LIST, &CMFCApplicationTSSDlg::OnLvnItemchangedFileList)
 END_MESSAGE_MAP()
 
 
@@ -187,21 +188,43 @@ void CMFCApplicationTSSDlg::DisplayFiles()
 {
 	m_fileList.DeleteAllItems();
 
-	for (int i = 0; i < m_names.size(); ++i)
+	for (int i = 0; i < m_images.size(); ++i)
 	{
-		m_fileList.InsertItem(i, m_names[i]); 
+		m_fileList.InsertItem(i, m_images[i].m_name);
 	}
+
+	if (m_images.size() > 0)
+	{
+		m_fileList.SetItemState(0, LVIS_SELECTED , LVIS_SELECTED);
+
+		m_staticImage.Invalidate(FALSE);
+
+	}
+}
+
+bool CMFCApplicationTSSDlg::Duplicate(CString path)
+{
+	for (int i = 0; i < m_images.size(); i++)
+	{
+		if (m_images[i].m_path == path)
+		{
+			return false;
+		}
+	}
+	return true;
 }
 
 void CMFCApplicationTSSDlg::OnFileOpen32771()
 {
-	TCHAR szFilters[] = _T("Image Files (*.bmp;*.jpeg;*.jpg;*.png)|*.bmp;*.jpeg;*.jpg;*.png||");
+	TCHAR Filters[] = _T("Image Files (*.bmp;*.jpeg;*.jpg;*.png)|*.bmp;*.jpeg;*.jpg;*.png||");
 
-	TCHAR szInitialDir[MAX_PATH];
-	GetCurrentDirectory(MAX_PATH, szInitialDir);
+	TCHAR InitialDir[MAX_PATH];
+	GetCurrentDirectory(MAX_PATH, InitialDir);
 
-	CFileDialog dlg(TRUE, _T(""), _T(""), OFN_FILEMUSTEXIST | OFN_ALLOWMULTISELECT, szFilters);
-	dlg.m_ofn.lpstrInitialDir = szInitialDir; 
+	CFileDialog dlg(TRUE, _T(""), _T(""), OFN_FILEMUSTEXIST | OFN_ALLOWMULTISELECT, Filters);
+	dlg.m_ofn.lpstrInitialDir = InitialDir; 
+
+
 
 	if (dlg.DoModal() == IDOK)
 	{
@@ -211,15 +234,33 @@ void CMFCApplicationTSSDlg::OnFileOpen32771()
 			CString filePath = dlg.GetNextPathName(pos);
 			CString fileName;
 
-			if (std::find(m_paths.begin(), m_paths.end(), filePath) == m_paths.end())
+			if (Duplicate(filePath))
             {
-                m_paths.push_back(filePath);
+				Img im;
+				im.m_path = filePath;
 
                 int posOfBackslash = filePath.ReverseFind(_T('\\'));
                 fileName = filePath.Right(filePath.GetLength() - posOfBackslash - 1);
 
-                m_names.push_back(fileName);
+				im.m_name = fileName;
+
+				im.m_image = Gdiplus::Image::FromFile(filePath);
+
+				if (im.m_image && im.m_image->GetLastStatus() == Gdiplus::Ok)
+				{
+					m_images.push_back(im); 
+				}
+				else
+				{
+					AfxMessageBox(_T("Failed to load the image."));
+					delete im.m_image; 
+				}
             }
+			else
+			{
+				AfxMessageBox(_T("Duplicate file."));
+			}
+			
 		}
 		DisplayFiles();
 	}
@@ -240,15 +281,12 @@ void CMFCApplicationTSSDlg::OnFileClose32772()
 	}
 
 	int selectedIndex = m_fileList.GetNextSelectedItem(pos);
-	CString fileName = m_names[selectedIndex];
-	CString message;
-	message.Format(_T("Do you want to delete file: %s?"), fileName);
-	int response = AfxMessageBox(message, MB_YESNO | MB_ICONQUESTION);
+	CString fileName = m_images[selectedIndex].m_name;
+	int response = AfxMessageBox(_T("Do you want to delete file: ") + fileName + _T("?"), MB_YESNO | MB_ICONQUESTION);
 
 	if (response == IDYES)
 	{
-		m_paths.erase(m_paths.begin() + selectedIndex);
-		m_names.erase(m_names.begin() + selectedIndex);
+		m_images.erase(m_images.begin() + selectedIndex);
 
 		DisplayFiles(); 
 	}
@@ -277,9 +315,45 @@ LRESULT CMFCApplicationTSSDlg::OnDrawImage(WPARAM wParam, LPARAM lParam)
 	LPDRAWITEMSTRUCT st = (LPDRAWITEMSTRUCT)wParam;
 
 	//CDC* pDC = CDC::FromHandle(st->hDC);
-	auto gr = Gdiplus::Graphics::FromHDC(st->hDC);
-	//gr -> DrawImage()
+	Gdiplus::Graphics gr(st->hDC);
 
+	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
+	if (selected == -1 || selected >= m_images.size())
+	{
+		return S_OK;
+	}
+
+	Gdiplus::Image* pImage = m_images[selected].m_image;
+
+	if (pImage && pImage->GetLastStatus() == Gdiplus::Ok)
+	{
+		UINT imgWidth = pImage->GetWidth();
+		UINT imgHeight = pImage->GetHeight();
+
+		CRect rect;
+		m_staticImage.GetClientRect(&rect);
+		int areaW = rect.Width();
+		int areaH = rect.Height();
+
+		// zvacsenie a zmensenie
+		double scaleX = (double)(areaW) / imgWidth;
+		double scaleY = (double)(areaH) / imgHeight;
+		double scale = min(scaleX, scaleY);  //podla toho ci je obrazok na vysku alebo sirku sa vybera
+
+		
+		int newWidth = (int)(imgWidth * scale);
+		int newHeight = (int)(imgHeight * scale);
+
+		
+		int xPos = (areaW - newWidth) / 2;
+		int yPos = (areaH - newHeight) / 2;
+
+
+		gr.Clear(Gdiplus::Color::White);
+
+		
+		gr.DrawImage(pImage, xPos, yPos, newWidth, newHeight);
+	}
 
 	return S_OK;
 }
@@ -289,3 +363,13 @@ LRESULT CMFCApplicationTSSDlg::OnDrawHist(WPARAM wParam, LPARAM lParam)
 	return S_OK;
 }
 
+
+
+void CMFCApplicationTSSDlg::OnLvnItemchangedFileList(NMHDR* pNMHDR, LRESULT* pResult)
+{
+	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
+	
+	m_staticImage.Invalidate(FALSE);
+
+	*pResult = 0;
+}
