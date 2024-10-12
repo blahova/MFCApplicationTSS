@@ -289,6 +289,7 @@ void CMFCApplicationTSSDlg::OnFileClose32772()
 		m_images.erase(m_images.begin() + selectedIndex);
 
 		DisplayFiles(); 
+		Invalidate(TRUE);
 	}
 }
 
