@@ -45,6 +45,10 @@ public:
 protected:
 	DECLARE_MESSAGE_MAP()
 
+public:
+//	afx_msg void OnHistogramR();
+//	afx_msg void OnHistogramG();
+//	afx_msg void OnHistogramB();
 };
 
 CAboutDlg::CAboutDlg() : CDialogEx(IDD_ABOUTBOX)
@@ -57,6 +61,9 @@ void CAboutDlg::DoDataExchange(CDataExchange* pDX)
 }
 
 BEGIN_MESSAGE_MAP(CAboutDlg, CDialogEx)
+//	ON_COMMAND(ID_HISTOGRAM_R, &CAboutDlg::OnHistogramR)
+//	ON_COMMAND(ID_HISTOGRAM_G, &CAboutDlg::OnHistogramG)
+//	ON_COMMAND(ID_HISTOGRAM_B, &CAboutDlg::OnHistogramB)
 END_MESSAGE_MAP()
 
 
@@ -88,6 +95,9 @@ BEGIN_MESSAGE_MAP(CMFCApplicationTSSDlg, CDialogEx)
 	ON_MESSAGE(WM_DRAW_IMAGE, OnDrawImage)
 	ON_MESSAGE(WM_DRAW_HISTOGRAM, OnDrawHist)
 	ON_NOTIFY(LVN_ITEMCHANGED, IDC_FILE_LIST, &CMFCApplicationTSSDlg::OnLvnItemchangedFileList)
+	ON_COMMAND(ID_HISTOGRAM_B, &CMFCApplicationTSSDlg::OnHistogramB)
+	ON_COMMAND(ID_HISTOGRAM_G, &CMFCApplicationTSSDlg::OnHistogramG)
+	ON_COMMAND(ID_HISTOGRAM_R, &CMFCApplicationTSSDlg::OnHistogramR)
 END_MESSAGE_MAP()
 
 
@@ -373,4 +383,29 @@ void CMFCApplicationTSSDlg::OnLvnItemchangedFileList(NMHDR* pNMHDR, LRESULT* pRe
 	m_staticImage.Invalidate(FALSE);
 
 	*pResult = 0;
+}
+
+
+
+void CMFCApplicationTSSDlg::OnHistogramB()
+{
+	m_BlueChecked = !m_BlueChecked;
+	CMenu* pMenu = GetMenu();
+	pMenu->CheckMenuItem(ID_HISTOGRAM_B, m_BlueChecked ? MF_CHECKED : MF_UNCHECKED);
+}
+
+
+void CMFCApplicationTSSDlg::OnHistogramG()
+{
+	m_GreenChecked = !m_GreenChecked;
+	CMenu* pMenu = GetMenu();
+	pMenu->CheckMenuItem(ID_HISTOGRAM_G, m_GreenChecked ? MF_CHECKED : MF_UNCHECKED);
+}
+
+
+void CMFCApplicationTSSDlg::OnHistogramR()
+{
+	m_RedChecked = !m_RedChecked;
+	CMenu* pMenu = GetMenu();
+	pMenu->CheckMenuItem(ID_HISTOGRAM_R, m_RedChecked ? MF_CHECKED : MF_UNCHECKED);
 }
