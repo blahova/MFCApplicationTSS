@@ -76,8 +76,7 @@ public:
 	bool m_GreenChecked = FALSE;
 	bool m_BlueChecked = FALSE;
 
-	
-
+	void CalculateHistogram(Img& image);
 
 	void DisplayFiles();
 	bool Duplicate(CString path);

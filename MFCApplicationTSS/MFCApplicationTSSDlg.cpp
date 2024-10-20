@@ -194,6 +194,12 @@ HCURSOR CMFCApplicationTSSDlg::OnQueryDragIcon()
 
 
 
+
+void CMFCApplicationTSSDlg::CalculateHistogram(Img& image)
+{
+
+}
+
 void CMFCApplicationTSSDlg::DisplayFiles()
 {
 	m_fileList.DeleteAllItems();
@@ -234,8 +240,6 @@ void CMFCApplicationTSSDlg::OnFileOpen32771()
 	CFileDialog dlg(TRUE, _T(""), _T(""), OFN_FILEMUSTEXIST | OFN_ALLOWMULTISELECT, Filters);
 	dlg.m_ofn.lpstrInitialDir = InitialDir; 
 
-
-
 	if (dlg.DoModal() == IDOK)
 	{
 		POSITION pos(dlg.GetStartPosition());
@@ -258,6 +262,7 @@ void CMFCApplicationTSSDlg::OnFileOpen32771()
 
 				if (im.m_image && im.m_image->GetLastStatus() == Gdiplus::Ok)
 				{
+					CalculateHistogram(im);
 					m_images.push_back(im); 
 				}
 				else
@@ -270,7 +275,6 @@ void CMFCApplicationTSSDlg::OnFileOpen32771()
 			{
 				AfxMessageBox(_T("Duplicate file."));
 			}
-			
 		}
 		DisplayFiles();
 	}
@@ -358,10 +362,6 @@ LRESULT CMFCApplicationTSSDlg::OnDrawImage(WPARAM wParam, LPARAM lParam)
 		
 		int xPos = (areaW - newWidth) / 2;
 		int yPos = (areaH - newHeight) / 2;
-
-
-		gr.Clear(Gdiplus::Color::White);
-
 		
 		gr.DrawImage(pImage, xPos, yPos, newWidth, newHeight);
 	}
@@ -371,6 +371,9 @@ LRESULT CMFCApplicationTSSDlg::OnDrawImage(WPARAM wParam, LPARAM lParam)
 
 LRESULT CMFCApplicationTSSDlg::OnDrawHist(WPARAM wParam, LPARAM lParam)
 {
+	LPDRAWITEMSTRUCT st = (LPDRAWITEMSTRUCT)wParam;
+	Gdiplus::Graphics gr(st->hDC);
+
 	return S_OK;
 }
 
@@ -380,7 +383,7 @@ void CMFCApplicationTSSDlg::OnLvnItemchangedFileList(NMHDR* pNMHDR, LRESULT* pRe
 {
 	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
 	
-	m_staticImage.Invalidate(FALSE);
+	Invalidate(TRUE);
 
 	*pResult = 0;
 }
@@ -392,6 +395,7 @@ void CMFCApplicationTSSDlg::OnHistogramB()
 	m_BlueChecked = !m_BlueChecked;
 	CMenu* pMenu = GetMenu();
 	pMenu->CheckMenuItem(ID_HISTOGRAM_B, m_BlueChecked ? MF_CHECKED : MF_UNCHECKED);
+	m_staticHistogram.Invalidate(FALSE);
 }
 
 
@@ -400,6 +404,7 @@ void CMFCApplicationTSSDlg::OnHistogramG()
 	m_GreenChecked = !m_GreenChecked;
 	CMenu* pMenu = GetMenu();
 	pMenu->CheckMenuItem(ID_HISTOGRAM_G, m_GreenChecked ? MF_CHECKED : MF_UNCHECKED);
+	m_staticHistogram.Invalidate(FALSE);
 }
 
 
@@ -408,4 +413,5 @@ void CMFCApplicationTSSDlg::OnHistogramR()
 	m_RedChecked = !m_RedChecked;
 	CMenu* pMenu = GetMenu();
 	pMenu->CheckMenuItem(ID_HISTOGRAM_R, m_RedChecked ? MF_CHECKED : MF_UNCHECKED);
+	m_staticHistogram.Invalidate(FALSE);
 }
