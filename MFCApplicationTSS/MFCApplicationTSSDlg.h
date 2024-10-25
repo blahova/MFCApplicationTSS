@@ -18,9 +18,9 @@ struct Img
 	CString m_path;
 	CString m_name;
 	Gdiplus::Image* m_image;
-	std::vector<UINT> m_red;
-	std::vector<UINT> m_green;
-	std::vector<UINT> m_blue;
+	std::vector<int> m_red;
+	std::vector<int> m_green;
+	std::vector<int> m_blue;
 };
 
 
@@ -80,6 +80,7 @@ public:
 
 	void DisplayFiles();
 	bool Duplicate(CString path);
+	bool IsCalculated(int index);
 
 	afx_msg void OnFileOpen32771();
 	afx_msg void OnFileClose32772();
