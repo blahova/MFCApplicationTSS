@@ -21,6 +21,7 @@ struct Img
 	std::vector<int> m_red;
 	std::vector<int> m_green;
 	std::vector<int> m_blue;
+	bool isCalc = false;
 };
 
 
@@ -39,20 +40,20 @@ public:
 // CMFCApplicationTSSDlg dialog
 class CMFCApplicationTSSDlg : public CDialogEx
 {
-// Construction
+	// Construction
 public:
 	CMFCApplicationTSSDlg(CWnd* pParent = nullptr);	// standard constructor
 
-// Dialog Data
+	// Dialog Data
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_MFCAPPLICATIONTSS_DIALOG };
 #endif
 
-	protected:
+protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
 
 
-// Implementation
+	// Implementation
 protected:
 	HICON m_hIcon;
 

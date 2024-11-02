@@ -7,6 +7,7 @@
 #include "MFCApplicationTSS.h"
 #include "MFCApplicationTSSDlg.h"
 #include "afxdialogex.h"
+#include "Library.h"
 
 
 #ifdef _DEBUG
@@ -201,38 +202,22 @@ void CMFCApplicationTSSDlg::CalculateHistogram(Img& image)
 	{
 		return; 
 	}
-
-	image.m_red.assign(256, 0);
-	image.m_green.assign(256, 0);
-	image.m_blue.assign(256, 0);
-
 	Gdiplus::Bitmap* bitmap = static_cast<Gdiplus::Bitmap*>(image.m_image);
 	Gdiplus::Rect rect(0, 0, bitmap->GetWidth(), bitmap->GetHeight());
 	Gdiplus::BitmapData bitmapData;
 
-	if (bitmap->LockBits(&rect, Gdiplus::ImageLockModeRead, PixelFormat32bppRGB, &bitmapData) == Gdiplus::Ok)
-	{
-		BYTE* pixels = (BYTE*)bitmapData.Scan0;
-		int stride = bitmapData.Stride;
+	bitmap->LockBits(&rect, Gdiplus::ImageLockModeRead, PixelFormat32bppRGB, &bitmapData);
 
-		for (UINT y = 0; y < bitmap->GetHeight(); ++y)
-		{
-			BYTE* row = pixels + y * stride;
-			for (UINT x = 0; x < bitmap->GetWidth(); ++x)
-			{
-				BYTE blue = row[x * 4];
-				BYTE green = row[x * 4 + 1];
-				BYTE red = row[x * 4 + 2];
+	const BYTE* pixels = (BYTE*)bitmapData.Scan0;
+	int stride = bitmapData.Stride;
+	int height = bitmapData.Height;
+	int width = bitmapData.Width;
 
-				image.m_red[red]++;
-				image.m_green[green]++;
-				image.m_blue[blue]++;
-			}
-		}
-
-		bitmap->UnlockBits(&bitmapData);
-	}
+	CalculateHistogramFromPixels(pixels, width, height, stride, image.m_red, image.m_green, image.m_blue);
+	
+	bitmap->UnlockBits(&bitmapData);
 }
+
 
 void CMFCApplicationTSSDlg::DisplayFiles()
 {
