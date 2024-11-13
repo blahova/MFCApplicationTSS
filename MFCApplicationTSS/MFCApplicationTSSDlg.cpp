@@ -224,10 +224,10 @@ void CMFCApplicationTSSDlg::CheckHistogram(Img& image)
 
 		image.bCalculated = true;
 		PostMessage(WM_HISTOGRAM_CALCULATED);
+		image.bStarted = false;
 
 		}).detach(); 
 
-	image.bStarted = false;	//uz sa dokoncil tak sa started rusi
 	bitmap->UnlockBits(&bitmapData); 
 }
 
