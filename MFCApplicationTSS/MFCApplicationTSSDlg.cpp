@@ -95,6 +95,7 @@ BEGIN_MESSAGE_MAP(CMFCApplicationTSSDlg, CDialogEx)
 	ON_WM_SIZE()
 	ON_MESSAGE(WM_DRAW_IMAGE, OnDrawImage)
 	ON_MESSAGE(WM_DRAW_HISTOGRAM, OnDrawHist)
+	ON_MESSAGE(WM_HISTOGRAM_CALCULATED, OnHistogramCalculated)
 	ON_NOTIFY(LVN_ITEMCHANGED, IDC_FILE_LIST, &CMFCApplicationTSSDlg::OnLvnItemchangedFileList)
 	ON_COMMAND(ID_HISTOGRAM_B, &CMFCApplicationTSSDlg::OnHistogramB)
 	ON_COMMAND(ID_HISTOGRAM_G, &CMFCApplicationTSSDlg::OnHistogramG)
@@ -196,12 +197,13 @@ HCURSOR CMFCApplicationTSSDlg::OnQueryDragIcon()
 
 
 
-void CMFCApplicationTSSDlg::CalculateHistogram(Img& image)
+void CMFCApplicationTSSDlg::CheckHistogram(Img& image)
 {
-	if (!image.m_image || image.m_image->GetLastStatus() != Gdiplus::Ok)
-	{
+	if (image.bCalculated || image.bStarted || !image.m_image || image.m_image->GetLastStatus() != Gdiplus::Ok )
+	{ //kontroluje ci je vypocitany, ci nahodou nema uz zacaty thread, vtedy sa returne hned
 		return; 
 	}
+
 	Gdiplus::Bitmap* bitmap = static_cast<Gdiplus::Bitmap*>(image.m_image);
 	Gdiplus::Rect rect(0, 0, bitmap->GetWidth(), bitmap->GetHeight());
 	Gdiplus::BitmapData bitmapData;
@@ -213,9 +215,20 @@ void CMFCApplicationTSSDlg::CalculateHistogram(Img& image)
 	int height = bitmapData.Height;
 	int width = bitmapData.Width;
 
-	CalculateHistogramFromPixels(pixels, width, height, stride, image.m_red, image.m_green, image.m_blue);
-	
-	bitmap->UnlockBits(&bitmapData);
+	//tu bude ten thread
+	std::thread([this, &image, pixels, width, height, stride]() {
+		image.bStarted = true;
+		Sleep(10000);
+		CalculateHistogramFromPixels(pixels, width, height, stride, image.m_red, image.m_green, image.m_blue);
+
+
+		image.bCalculated = true;
+		PostMessage(WM_HISTOGRAM_CALCULATED);
+
+		}).detach(); 
+
+	image.bStarted = false;	//uz sa dokoncil tak sa started rusi
+	bitmap->UnlockBits(&bitmapData); 
 }
 
 
@@ -249,20 +262,6 @@ bool CMFCApplicationTSSDlg::Duplicate(CString path)
 	return true;
 }
 
-bool CMFCApplicationTSSDlg::IsCalculated(int index)
-{
-	if (index != -1 && index < m_images.size())
-	{
-		if (m_images[index].m_red.empty() || m_images[index].m_green.empty() || m_images[index].m_blue.empty())
-		{
-			return false;
-		}
-		else
-		{
-			return true;
-		}
-	}
-}
 
 void CMFCApplicationTSSDlg::OnFileOpen32771()
 {
@@ -328,6 +327,7 @@ void CMFCApplicationTSSDlg::OnFileClose32772()
 	}
 
 	int selectedIndex = m_fileList.GetNextSelectedItem(pos);
+
 	CString fileName = m_images[selectedIndex].m_name;
 	int response = AfxMessageBox(_T("Do you want to delete file: ") + fileName + _T("?"), MB_YESNO | MB_ICONQUESTION);
 
@@ -472,16 +472,16 @@ LRESULT CMFCApplicationTSSDlg::OnDrawHist(WPARAM wParam, LPARAM lParam)
 void CMFCApplicationTSSDlg::OnLvnItemchangedFileList(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
-
+	Invalidate(TRUE);
 	if (m_BlueChecked || m_RedChecked || m_GreenChecked)
 	{
 		int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
-		if (!IsCalculated(selected))
+		if (selected != -1 && selected < m_images.size())
 		{
-			CalculateHistogram(m_images[selected]);
+			CheckHistogram(m_images[selected]);
 		}
+		Invalidate(TRUE);
 	}
-	Invalidate(TRUE);
 	*pResult = 0;
 }
 
@@ -496,12 +496,9 @@ void CMFCApplicationTSSDlg::OnHistogramB()
 	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
 	if (selected != -1 && selected < m_images.size())
 	{
-		if (!IsCalculated(selected))
-		{
-			CalculateHistogram(m_images[selected]);
-		}
-		Invalidate(TRUE);
+		CheckHistogram(m_images[selected]);
 	}
+	Invalidate(TRUE);
 }
 
 
@@ -513,12 +510,9 @@ void CMFCApplicationTSSDlg::OnHistogramG()
 	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
 	if (selected != -1 && selected < m_images.size())
 	{
-		if (!IsCalculated(selected))
-		{
-			CalculateHistogram(m_images[selected]);
-		}
-		Invalidate(TRUE);
+		CheckHistogram(m_images[selected]);
 	}
+	Invalidate(TRUE);
 }
 
 
@@ -530,10 +524,13 @@ void CMFCApplicationTSSDlg::OnHistogramR()
 	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
 	if (selected != -1 && selected < m_images.size())
 	{
-		if (!IsCalculated(selected))
-		{
-			CalculateHistogram(m_images[selected]);
-		}
-		Invalidate(TRUE);
+		CheckHistogram(m_images[selected]);
 	}
+	Invalidate(TRUE);
+}
+
+LRESULT CMFCApplicationTSSDlg::OnHistogramCalculated(WPARAM wParam, LPARAM lParam)
+{
+	m_staticHistogram.Invalidate(TRUE);
+	return S_OK;
 }

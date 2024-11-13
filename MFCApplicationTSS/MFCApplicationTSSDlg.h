@@ -4,13 +4,16 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <thread>
+#include <chrono>
 
 #pragma once
 
 enum
 {
 	WM_DRAW_IMAGE = WM_USER + 1,
-	WM_DRAW_HISTOGRAM
+	WM_DRAW_HISTOGRAM,
+	WM_HISTOGRAM_CALCULATED
 };
 
 struct Img
@@ -21,7 +24,8 @@ struct Img
 	std::vector<int> m_red;
 	std::vector<int> m_green;
 	std::vector<int> m_blue;
-	bool isCalc = false;
+	bool bCalculated = false;
+	bool bStarted = false;
 };
 
 
@@ -77,17 +81,17 @@ public:
 	bool m_GreenChecked = FALSE;
 	bool m_BlueChecked = FALSE;
 
-	void CalculateHistogram(Img& image);
+	void CheckHistogram(Img& image);
 
 	void DisplayFiles();
 	bool Duplicate(CString path);
-	bool IsCalculated(int index);
 
 	afx_msg void OnFileOpen32771();
 	afx_msg void OnFileClose32772();
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg LRESULT OnDrawImage(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnDrawHist(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnHistogramCalculated(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnLvnItemchangedFileList(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnHistogramB();
 	afx_msg void OnHistogramG();
