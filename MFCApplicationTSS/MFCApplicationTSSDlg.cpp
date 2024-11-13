@@ -208,27 +208,25 @@ void CMFCApplicationTSSDlg::CheckHistogram(Img& image)
 	Gdiplus::Rect rect(0, 0, bitmap->GetWidth(), bitmap->GetHeight());
 	Gdiplus::BitmapData bitmapData;
 
-	bitmap->LockBits(&rect, Gdiplus::ImageLockModeRead, PixelFormat32bppRGB, &bitmapData);
+	if (bitmap->LockBits(&rect, Gdiplus::ImageLockModeRead, PixelFormat32bppRGB, &bitmapData) == Gdiplus::Ok)
+	{
+		const BYTE* pixels = static_cast<BYTE*>(bitmapData.Scan0);
+		int stride = bitmapData.Stride;
+		int height = bitmapData.Height;
+		int width = bitmapData.Width;
 
-	const BYTE* pixels = (BYTE*)bitmapData.Scan0;
-	int stride = bitmapData.Stride;
-	int height = bitmapData.Height;
-	int width = bitmapData.Width;
-
-	//tu bude ten thread
-	std::thread([this, &image, pixels, width, height, stride]() {
 		image.bStarted = true;
-		Sleep(10000);
-		CalculateHistogramFromPixels(pixels, width, height, stride, image.m_red, image.m_green, image.m_blue);
+		std::thread([this, &image, pixels, width, height, stride]() mutable {
+			Sleep(5000);
+			CalculateHistogramFromPixels(pixels, width, height, stride, image.m_red, image.m_green, image.m_blue);
 
+			image.bCalculated = true;
+			image.bStarted = false;
+			PostMessage(WM_HISTOGRAM_CALCULATED);
+			}).detach();
 
-		image.bCalculated = true;
-		PostMessage(WM_HISTOGRAM_CALCULATED);
-		image.bStarted = false;
-
-		}).detach(); 
-
-	bitmap->UnlockBits(&bitmapData); 
+			bitmap->UnlockBits(&bitmapData);
+	}
 }
 
 
