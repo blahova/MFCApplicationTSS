@@ -81,7 +81,7 @@ public:
 	bool m_GreenChecked = FALSE;
 	bool m_BlueChecked = FALSE;
 
-	void CheckHistogram(Img& image);
+	void CheckHistogram(int index);
 
 	void DisplayFiles();
 	bool Duplicate(CString path);
@@ -96,4 +96,9 @@ public:
 	afx_msg void OnHistogramB();
 	afx_msg void OnHistogramG();
 	afx_msg void OnHistogramR();
+
+	afx_msg void OnImageSepia1();
+	afx_msg void OnImageSepia2();
+	afx_msg void OnImageSepia3();
+	afx_msg void OnImageOriginal();
 };
