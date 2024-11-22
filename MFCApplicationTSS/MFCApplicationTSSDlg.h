@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <thread>
+#include <mutex>
 #include <chrono>
 
 #pragma once
@@ -81,7 +82,8 @@ public:
 	bool m_GreenChecked = FALSE;
 	bool m_BlueChecked = FALSE;
 
-	void CheckHistogram(int index);
+	void CheckHistogram(Img& image);
+	void CheckSepia(Img& image);
 
 	void DisplayFiles();
 	bool Duplicate(CString path);

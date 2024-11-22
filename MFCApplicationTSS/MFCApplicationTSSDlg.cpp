@@ -201,35 +201,59 @@ HCURSOR CMFCApplicationTSSDlg::OnQueryDragIcon()
 
 
 
-void CMFCApplicationTSSDlg::CheckHistogram(int index)
+void CMFCApplicationTSSDlg::CheckHistogram(Img& image)
 {
-	if (m_images[index].bCalculated || m_images[index].bStarted || !m_images[index].m_image || m_images[index].m_image->GetLastStatus() != Gdiplus::Ok)
+	if (image.bCalculated || image.bStarted || !image.m_image || image.m_image->GetLastStatus() != Gdiplus::Ok)
 	{ //kontroluje ci je vypocitany, ci nahodou nema uz zacaty thread, vtedy sa returne hned
-		return; 
+		return;
 	}
 
-	std::thread([this, index]() {
-		Gdiplus::Bitmap* bitmap = static_cast<Gdiplus::Bitmap*>(m_images[index].m_image);
-		Gdiplus::Rect rect(0, 0, bitmap->GetWidth(), bitmap->GetHeight());
-		Gdiplus::BitmapData bitmapData;
+	Img img = image;
 
-		Sleep(10000);
-		if (bitmap->LockBits(&rect, Gdiplus::ImageLockModeRead, PixelFormat32bppRGB, &bitmapData) == Gdiplus::Ok)
-		{
-			const BYTE* pixels = static_cast<BYTE*>(bitmapData.Scan0);
-			int stride = bitmapData.Stride;
-			int height = bitmapData.Height;
-			int width = bitmapData.Width;
+	Gdiplus::Bitmap* bitmap = static_cast<Gdiplus::Bitmap*>(img.m_image);
+	Gdiplus::Rect rect(0, 0, bitmap->GetWidth(), bitmap->GetHeight());
+	Gdiplus::BitmapData bitmapData;
 
-			m_images[index].bStarted = true;
-			CalculateHistogramFromPixels(pixels, width, height, stride, m_images[index].m_red, m_images[index].m_green, m_images[index].m_blue);
+	if (bitmap->LockBits(&rect, Gdiplus::ImageLockModeRead, PixelFormat32bppRGB, &bitmapData) == Gdiplus::Ok)
+	{
+		const BYTE* pixels = static_cast<BYTE*>(bitmapData.Scan0);
+		int stride = bitmapData.Stride;
+		int height = bitmapData.Height;
+		int width = bitmapData.Width;
 
-			m_images[index].bCalculated = true;
-			m_images[index].bStarted = false;
-			PostMessage(WM_HISTOGRAM_CALCULATED);
+		img.bStarted = true;
+		std::thread([this, &image, img, pixels, width, height, stride]() mutable{
+			Sleep(5000);
+			CalculateHistogramFromPixels(pixels, width, height, stride, img.m_red, img.m_green, img.m_blue);
+
+			bool bNotify = false;
+			{
+				std::mutex l;
+				if (img.m_name == image.m_name)
+				{
+					image = img;
+					image.bCalculated = true;
+					image.bStarted = false;
+					bNotify = true;
+				}
+				else
+				{
+					//ASSERT(NULL);
+				}
+			}
+			if (bNotify)
+			{
+				CString* pName = new CString(img.m_name);
+				PostMessage(WM_HISTOGRAM_CALCULATED);
+			}
+			}).detach();
+
 			bitmap->UnlockBits(&bitmapData);
-		}
-	}).detach();
+	}
+}
+
+void CMFCApplicationTSSDlg::CheckSepia(Img& image)
+{
 }
 
 
@@ -337,6 +361,7 @@ void CMFCApplicationTSSDlg::OnFileClose32772()
 		m_images.erase(m_images.begin() + selectedIndex);
 
 		DisplayFiles(); 
+		OnImageOriginal();
 		Invalidate(TRUE);
 	}
 }
@@ -473,13 +498,13 @@ LRESULT CMFCApplicationTSSDlg::OnDrawHist(WPARAM wParam, LPARAM lParam)
 void CMFCApplicationTSSDlg::OnLvnItemchangedFileList(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
-	Invalidate(TRUE);
+	
 	if (m_BlueChecked || m_RedChecked || m_GreenChecked)
 	{
 		int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
 		if (selected != -1 && selected < m_images.size())
 		{
-			CheckHistogram(selected);
+			CheckHistogram(m_images[selected]);
 		}
 		Invalidate(TRUE);
 	}
@@ -497,7 +522,7 @@ void CMFCApplicationTSSDlg::OnHistogramB()
 	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
 	if (selected != -1 && selected < m_images.size())
 	{
-		CheckHistogram(selected);
+		CheckHistogram(m_images[selected]);
 	}
 	Invalidate(TRUE);
 }
@@ -511,7 +536,7 @@ void CMFCApplicationTSSDlg::OnHistogramG()
 	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
 	if (selected != -1 && selected < m_images.size())
 	{
-		CheckHistogram(selected);
+		CheckHistogram(m_images[selected]);
 	}
 	Invalidate(TRUE);
 }
@@ -525,7 +550,7 @@ void CMFCApplicationTSSDlg::OnHistogramR()
 	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
 	if (selected != -1 && selected < m_images.size())
 	{
-		CheckHistogram(selected);
+		CheckHistogram(m_images[selected]);
 	}
 	Invalidate(TRUE);
 }
@@ -539,23 +564,67 @@ LRESULT CMFCApplicationTSSDlg::OnHistogramCalculated(WPARAM wParam, LPARAM lPara
 
 void CMFCApplicationTSSDlg::OnImageSepia1()
 {
-	// TODO: Add your command handler code here
+	CMenu* pMenu = GetMenu();
+	pMenu->CheckMenuItem(ID_IMAGE_SEPIA1, (pMenu->GetMenuState(ID_IMAGE_SEPIA1, MF_BYCOMMAND) & MF_CHECKED) ? MF_UNCHECKED : MF_CHECKED);
+	pMenu->CheckMenuItem(ID_IMAGE_SEPIA2, MF_UNCHECKED);
+	pMenu->CheckMenuItem(ID_IMAGE_SEPIA3, MF_UNCHECKED);
+	pMenu->CheckMenuItem(ID_IMAGE_ORIGINAL, MF_UNCHECKED);
+
+	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
+	if (selected != -1 && selected < m_images.size())
+	{
+		CheckSepia(m_images[selected]);
+	}
+	m_staticImage.Invalidate(TRUE);
 }
 
 
 void CMFCApplicationTSSDlg::OnImageSepia2()
 {
-	// TODO: Add your command handler code here
+	CMenu* pMenu = GetMenu();
+	pMenu->CheckMenuItem(ID_IMAGE_SEPIA2, (pMenu->GetMenuState(ID_IMAGE_SEPIA2, MF_BYCOMMAND) & MF_CHECKED) ? MF_UNCHECKED : MF_CHECKED);
+	pMenu->CheckMenuItem(ID_IMAGE_SEPIA1, MF_UNCHECKED);
+	pMenu->CheckMenuItem(ID_IMAGE_SEPIA3, MF_UNCHECKED);
+	pMenu->CheckMenuItem(ID_IMAGE_ORIGINAL, MF_UNCHECKED);
+
+	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
+	if (selected != -1 && selected < m_images.size())
+	{
+		CheckSepia(m_images[selected]);
+	}
+	m_staticImage.Invalidate(TRUE);
 }
 
 
 void CMFCApplicationTSSDlg::OnImageSepia3()
 {
-	// TODO: Add your command handler code here
+	CMenu* pMenu = GetMenu();
+	pMenu->CheckMenuItem(ID_IMAGE_SEPIA3, (pMenu->GetMenuState(ID_IMAGE_SEPIA3, MF_BYCOMMAND) & MF_CHECKED) ? MF_UNCHECKED : MF_CHECKED);
+	pMenu->CheckMenuItem(ID_IMAGE_SEPIA2, MF_UNCHECKED);
+	pMenu->CheckMenuItem(ID_IMAGE_SEPIA1, MF_UNCHECKED);
+	pMenu->CheckMenuItem(ID_IMAGE_ORIGINAL, MF_UNCHECKED);
+
+	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
+	if (selected != -1 && selected < m_images.size())
+	{
+		CheckSepia(m_images[selected]);
+	}
+	m_staticImage.Invalidate(TRUE);
 }
 
 
 void CMFCApplicationTSSDlg::OnImageOriginal()
 {
-	// TODO: Add your command handler code here
+	CMenu* pMenu = GetMenu();
+	pMenu->CheckMenuItem(ID_IMAGE_ORIGINAL, (pMenu->GetMenuState(ID_IMAGE_ORIGINAL, MF_BYCOMMAND) & MF_CHECKED) ? MF_UNCHECKED : MF_CHECKED);
+	pMenu->CheckMenuItem(ID_IMAGE_SEPIA1, MF_UNCHECKED);
+	pMenu->CheckMenuItem(ID_IMAGE_SEPIA3, MF_UNCHECKED);
+	pMenu->CheckMenuItem(ID_IMAGE_SEPIA2, MF_UNCHECKED);
+	
+	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
+	if (selected != -1 && selected < m_images.size())
+	{
+		CheckSepia(m_images[selected]);
+	}
+	m_staticImage.Invalidate(TRUE);
 }
