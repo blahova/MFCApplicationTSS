@@ -96,6 +96,7 @@ BEGIN_MESSAGE_MAP(CMFCApplicationTSSDlg, CDialogEx)
 	ON_MESSAGE(WM_DRAW_IMAGE, OnDrawImage)
 	ON_MESSAGE(WM_DRAW_HISTOGRAM, OnDrawHist)
 	ON_MESSAGE(WM_HISTOGRAM_CALCULATED, OnHistogramCalculated)
+	ON_MESSAGE(WM_SEPIA_DONE, OnSepiaDone)
 	ON_NOTIFY(LVN_ITEMCHANGED, IDC_FILE_LIST, &CMFCApplicationTSSDlg::OnLvnItemchangedFileList)
 	ON_COMMAND(ID_HISTOGRAM_B, &CMFCApplicationTSSDlg::OnHistogramB)
 	ON_COMMAND(ID_HISTOGRAM_G, &CMFCApplicationTSSDlg::OnHistogramG)
@@ -211,15 +212,15 @@ void CMFCApplicationTSSDlg::CheckHistogram(Img& image)
 	Img img = image;
 
 	Gdiplus::Bitmap* bitmap = static_cast<Gdiplus::Bitmap*>(img.m_image);
-	Gdiplus::Rect rect(0, 0, bitmap->GetWidth(), bitmap->GetHeight());
+	UINT width = bitmap->GetWidth();
+	UINT height = bitmap->GetHeight();
+	Gdiplus::Rect rect(0, 0, width, height);
 	Gdiplus::BitmapData bitmapData;
 
 	if (bitmap->LockBits(&rect, Gdiplus::ImageLockModeRead, PixelFormat32bppRGB, &bitmapData) == Gdiplus::Ok)
 	{
-		const BYTE* pixels = static_cast<BYTE*>(bitmapData.Scan0);
+		BYTE* pixels = static_cast<BYTE*>(bitmapData.Scan0);
 		int stride = bitmapData.Stride;
-		int height = bitmapData.Height;
-		int width = bitmapData.Width;
 
 		img.bStarted = true;
 		std::thread([this, &image, img, pixels, width, height, stride]() mutable{
@@ -243,7 +244,6 @@ void CMFCApplicationTSSDlg::CheckHistogram(Img& image)
 			}
 			if (bNotify)
 			{
-				CString* pName = new CString(img.m_name);
 				PostMessage(WM_HISTOGRAM_CALCULATED);
 			}
 			}).detach();
@@ -252,8 +252,183 @@ void CMFCApplicationTSSDlg::CheckHistogram(Img& image)
 	}
 }
 
-void CMFCApplicationTSSDlg::CheckSepia(Img& image)
+void CMFCApplicationTSSDlg::CheckSepia(int index)
 {
+	if (m_images[index].bSepiaInProgress || !m_images[index].m_image)
+	{
+		return;
+	}
+	
+	
+	if (bSepia1 && m_images[index].m_sepia[0] == nullptr) SepiaThread(m_images[index],1);
+	else if (bSepia2 && m_images[index].m_sepia[1] == nullptr) SepiaThread(m_images[index],2);
+	else if (bSepia3 && m_images[index].m_sepia[2] == nullptr) SepiaThread(m_images[index],3);
+	else return;
+}
+
+void CMFCApplicationTSSDlg::CalculateSepia1(Gdiplus::Bitmap* pix)
+{
+	UINT width = pix->GetWidth();
+	UINT height = pix->GetHeight();
+
+	Gdiplus::Rect rect(0, 0, width, height);
+	Gdiplus::BitmapData bitmapData;
+
+	if (pix->LockBits(&rect, Gdiplus::ImageLockModeWrite, PixelFormat32bppARGB, &bitmapData) == Gdiplus::Ok)
+	{
+		BYTE* pixels = static_cast<BYTE*>(bitmapData.Scan0);
+		int stride = bitmapData.Stride;
+
+		for (int y = 0; y < height; ++y)
+		{
+			for (int x = 0; x < width; ++x)
+			{
+				BYTE B = pixels[y * stride + x * 4];
+				BYTE G = pixels[y * stride + x * 4 + 1];
+				BYTE R = pixels[y * stride + x * 4 + 2];
+
+				BYTE* pixel = pixels + (y * stride) + (x * 4);
+
+				int sepiaR = static_cast<int>((R * 0.393) + (G * 0.769) + (B * 0.189));
+				int sepiaG = static_cast<int>((R * 0.349) + (G * 0.686) + (B * 0.168));
+				int sepiaB = static_cast<int>((R * 0.272) + (G * 0.534) + (B * 0.131));
+
+				pixel[2] = static_cast<BYTE>((sepiaR < 255) ? sepiaR : 255);
+				pixel[1] = static_cast<BYTE>((sepiaG < 255) ? sepiaG : 255);
+				pixel[0] = static_cast<BYTE>((sepiaB < 255) ? sepiaB : 255);
+			}
+		}
+		pix->UnlockBits(&bitmapData);
+	}
+}
+
+void CMFCApplicationTSSDlg::CalculateSepia2(Gdiplus::Bitmap* pix)
+{
+	UINT width = pix->GetWidth();
+	UINT height = pix->GetHeight();
+
+	Gdiplus::Rect rect(0, 0, width, height);
+	Gdiplus::BitmapData bitmapData;
+
+	if (pix->LockBits(&rect, Gdiplus::ImageLockModeWrite, PixelFormat32bppARGB, &bitmapData) == Gdiplus::Ok)
+	{
+		BYTE* pixels = static_cast<BYTE*>(bitmapData.Scan0);
+		int stride = bitmapData.Stride;
+
+		for (int y = 0; y < height; ++y)
+		{
+			for (int x = 0; x < width; ++x)
+			{
+				BYTE B = pixels[y * stride + x * 4];
+				BYTE G = pixels[y * stride + x * 4 + 1];
+				BYTE R = pixels[y * stride + x * 4 + 2];
+
+				double luma = (0.3 * R + 0.59 * G + 0.11 * B) / 255;
+
+				BYTE* pixel = pixels + (y * stride) + (x * 4);
+
+				int sepiaR = static_cast<int>((R * 0.393) + (G * 0.769) + (B * 0.189))*luma;
+				int sepiaG = static_cast<int>((R * 0.349) + (G * 0.686) + (B * 0.168)) * luma;
+				int sepiaB = static_cast<int>((R * 0.272) + (G * 0.534) + (B * 0.131)) * luma;
+
+				pixel[2] = static_cast<BYTE>((sepiaR < 255) ? sepiaR : 255);
+				pixel[1] = static_cast<BYTE>((sepiaG < 255) ? sepiaG : 255);
+				pixel[0] = static_cast<BYTE>((sepiaB < 255) ? sepiaB : 255);
+			}
+		}
+		pix->UnlockBits(&bitmapData);
+	}
+}
+
+void CMFCApplicationTSSDlg::CalculateSepia3(Gdiplus::Bitmap* pix)
+{
+	UINT width = pix->GetWidth();
+	UINT height = pix->GetHeight();
+
+	Gdiplus::Rect rect(0, 0, width, height);
+	Gdiplus::BitmapData bitmapData;
+
+	if (pix->LockBits(&rect, Gdiplus::ImageLockModeWrite, PixelFormat32bppARGB, &bitmapData) == Gdiplus::Ok)
+	{
+		BYTE* pixels = static_cast<BYTE*>(bitmapData.Scan0);
+		int stride = bitmapData.Stride;
+
+		for (int y = 0; y < height; ++y)
+		{
+			for (int x = 0; x < width; ++x)
+			{
+				BYTE B = pixels[y * stride + x * 4];
+				BYTE G = pixels[y * stride + x * 4 + 1];
+				BYTE R = pixels[y * stride + x * 4 + 2];
+
+				BYTE brownR = 112;
+				BYTE brownG = 66;
+				BYTE brownB = 20;
+
+				double intensity = 0.4;
+
+				double grey = 0.3 * R + 0.59 * G + 0.11 * B;
+
+				BYTE* pixel = pixels + (y * stride) + (x * 4);
+
+				int sepiaR = static_cast<int>(grey + (brownR - grey) * intensity) ;
+				int sepiaG = static_cast<int>(grey + (brownG - grey) * intensity);
+				int sepiaB = static_cast<int>(grey + (brownB - grey) * intensity);
+
+				pixel[2] = static_cast<BYTE>((sepiaR < 255) ? sepiaR : 255);
+				pixel[1] = static_cast<BYTE>((sepiaG < 255) ? sepiaG : 255);
+				pixel[0] = static_cast<BYTE>((sepiaB < 255) ? sepiaB : 255);
+			}
+		}
+		pix->UnlockBits(&bitmapData);
+	}
+}
+
+void CMFCApplicationTSSDlg::SepiaThread(Img& image, int which)
+{
+	std::thread([this, &image, which]() {
+		image.bSepiaInProgress = true;
+		Sleep(5000);
+		Img img = image;
+		
+
+
+		Gdiplus::Image* newImage = img.m_image->Clone();
+		if (which == 1)
+		{
+			CalculateSepia1(static_cast<Gdiplus::Bitmap*>(newImage));
+			img.m_sepia[0] = newImage;
+		}
+		else if (which == 2) 
+		{
+			CalculateSepia2(static_cast<Gdiplus::Bitmap*>(newImage));
+			img.m_sepia[1] = newImage;
+		}
+		else
+		{
+			CalculateSepia3(static_cast<Gdiplus::Bitmap*>(newImage));
+			img.m_sepia[2] = newImage;
+		}
+		bool bNotify = false;
+		{
+			std::mutex l;
+			if (img.m_name == image.m_name)
+			{
+				image = img;
+				image.bSepiaInProgress = false;
+				bNotify = true;
+			}
+			else
+			{
+				//ASSERT(NULL);
+			}
+		}
+		if (bNotify)
+		{
+			PostMessage(WM_SEPIA_DONE);
+		}
+
+		}).detach();
 }
 
 
@@ -358,6 +533,15 @@ void CMFCApplicationTSSDlg::OnFileClose32772()
 
 	if (response == IDYES)
 	{
+		Img& image = m_images[selectedIndex];
+		for (int i = 0; i < 3; ++i)
+		{
+			if (image.m_sepia[i] != nullptr)
+			{
+				delete image.m_sepia[i];
+				image.m_sepia[i] = nullptr;
+			}
+		}
 		m_images.erase(m_images.begin() + selectedIndex);
 
 		DisplayFiles(); 
@@ -397,7 +581,14 @@ LRESULT CMFCApplicationTSSDlg::OnDrawImage(WPARAM wParam, LPARAM lParam)
 		return S_OK;
 	}
 
-	Gdiplus::Image* pImage = m_images[selected].m_image;
+	Gdiplus::Image* pImage; 
+
+	if (bSepia1 || bSepia2 || bSepia3) CheckSepia(selected);
+
+	if (bSepia1) pImage = m_images[selected].m_sepia[0];
+	else if(bSepia2) pImage = m_images[selected].m_sepia[1];
+	else if (bSepia3) pImage = m_images[selected].m_sepia[2];
+	else pImage = m_images[selected].m_image;
 
 	if (pImage && pImage->GetLastStatus() == Gdiplus::Ok)
 	{
@@ -460,7 +651,7 @@ LRESULT CMFCApplicationTSSDlg::OnDrawHist(WPARAM wParam, LPARAM lParam)
 	}
 
 
-	if (m_RedChecked)
+	if (bRedChecked)
 	{
 		Gdiplus::Pen redPen(Gdiplus::Color::Red);
 		for (int i = 0; i < 256; ++i)
@@ -470,7 +661,7 @@ LRESULT CMFCApplicationTSSDlg::OnDrawHist(WPARAM wParam, LPARAM lParam)
 		}
 	}
 
-	if (m_GreenChecked)
+	if (bGreenChecked)
 	{
 		Gdiplus::Pen greenPen(Gdiplus::Color::Green);
 		for (int i = 0; i < 256; ++i)
@@ -480,7 +671,7 @@ LRESULT CMFCApplicationTSSDlg::OnDrawHist(WPARAM wParam, LPARAM lParam)
 		}
 	}
 
-	if (m_BlueChecked)
+	if (bBlueChecked)
 	{
 		Gdiplus::Pen bluePen(Gdiplus::Color::Blue);
 		for (int i = 0; i < 256; ++i)
@@ -498,15 +689,15 @@ LRESULT CMFCApplicationTSSDlg::OnDrawHist(WPARAM wParam, LPARAM lParam)
 void CMFCApplicationTSSDlg::OnLvnItemchangedFileList(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
-	
-	if (m_BlueChecked || m_RedChecked || m_GreenChecked)
+	Invalidate(TRUE);
+	if (bBlueChecked || bRedChecked || bGreenChecked)
 	{
 		int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
 		if (selected != -1 && selected < m_images.size())
 		{
 			CheckHistogram(m_images[selected]);
 		}
-		Invalidate(TRUE);
+		m_staticHistogram.Invalidate(TRUE);
 	}
 	*pResult = 0;
 }
@@ -515,9 +706,9 @@ void CMFCApplicationTSSDlg::OnLvnItemchangedFileList(NMHDR* pNMHDR, LRESULT* pRe
 
 void CMFCApplicationTSSDlg::OnHistogramB()
 {
-	m_BlueChecked = !m_BlueChecked;
+	bBlueChecked = !bBlueChecked;
 	CMenu* pMenu = GetMenu();
-	pMenu->CheckMenuItem(ID_HISTOGRAM_B, m_BlueChecked ? MF_CHECKED : MF_UNCHECKED);
+	pMenu->CheckMenuItem(ID_HISTOGRAM_B, bBlueChecked ? MF_CHECKED : MF_UNCHECKED);
 
 	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
 	if (selected != -1 && selected < m_images.size())
@@ -530,9 +721,9 @@ void CMFCApplicationTSSDlg::OnHistogramB()
 
 void CMFCApplicationTSSDlg::OnHistogramG()
 {
-	m_GreenChecked = !m_GreenChecked;
+	bGreenChecked = !bGreenChecked;
 	CMenu* pMenu = GetMenu();
-	pMenu->CheckMenuItem(ID_HISTOGRAM_G, m_GreenChecked ? MF_CHECKED : MF_UNCHECKED);
+	pMenu->CheckMenuItem(ID_HISTOGRAM_G, bGreenChecked ? MF_CHECKED : MF_UNCHECKED);
 	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
 	if (selected != -1 && selected < m_images.size())
 	{
@@ -544,9 +735,9 @@ void CMFCApplicationTSSDlg::OnHistogramG()
 
 void CMFCApplicationTSSDlg::OnHistogramR()
 {
-	m_RedChecked = !m_RedChecked;
+	bRedChecked = !bRedChecked;
 	CMenu* pMenu = GetMenu();
-	pMenu->CheckMenuItem(ID_HISTOGRAM_R, m_RedChecked ? MF_CHECKED : MF_UNCHECKED);
+	pMenu->CheckMenuItem(ID_HISTOGRAM_R, bRedChecked ? MF_CHECKED : MF_UNCHECKED);
 	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
 	if (selected != -1 && selected < m_images.size())
 	{
@@ -561,11 +752,21 @@ LRESULT CMFCApplicationTSSDlg::OnHistogramCalculated(WPARAM wParam, LPARAM lPara
 	return S_OK;
 }
 
+LRESULT CMFCApplicationTSSDlg::OnSepiaDone(WPARAM wParam, LPARAM lParam)
+{
+	m_staticImage.Invalidate(TRUE);
+	return S_OK;
+}
+
 
 void CMFCApplicationTSSDlg::OnImageSepia1()
 {
+	if (bSepia1)return;
 	CMenu* pMenu = GetMenu();
-	pMenu->CheckMenuItem(ID_IMAGE_SEPIA1, (pMenu->GetMenuState(ID_IMAGE_SEPIA1, MF_BYCOMMAND) & MF_CHECKED) ? MF_UNCHECKED : MF_CHECKED);
+	bSepia1 = true;
+	bSepia2 = false;
+	bSepia3 = false;
+	pMenu->CheckMenuItem(ID_IMAGE_SEPIA1,MF_CHECKED);
 	pMenu->CheckMenuItem(ID_IMAGE_SEPIA2, MF_UNCHECKED);
 	pMenu->CheckMenuItem(ID_IMAGE_SEPIA3, MF_UNCHECKED);
 	pMenu->CheckMenuItem(ID_IMAGE_ORIGINAL, MF_UNCHECKED);
@@ -573,7 +774,7 @@ void CMFCApplicationTSSDlg::OnImageSepia1()
 	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
 	if (selected != -1 && selected < m_images.size())
 	{
-		CheckSepia(m_images[selected]);
+		CheckSepia(selected);
 	}
 	m_staticImage.Invalidate(TRUE);
 }
@@ -581,8 +782,12 @@ void CMFCApplicationTSSDlg::OnImageSepia1()
 
 void CMFCApplicationTSSDlg::OnImageSepia2()
 {
+	if (bSepia2)return;
 	CMenu* pMenu = GetMenu();
-	pMenu->CheckMenuItem(ID_IMAGE_SEPIA2, (pMenu->GetMenuState(ID_IMAGE_SEPIA2, MF_BYCOMMAND) & MF_CHECKED) ? MF_UNCHECKED : MF_CHECKED);
+	bSepia1 = false;
+	bSepia2 = true;
+	bSepia3 = false;
+	pMenu->CheckMenuItem(ID_IMAGE_SEPIA2,MF_CHECKED);
 	pMenu->CheckMenuItem(ID_IMAGE_SEPIA1, MF_UNCHECKED);
 	pMenu->CheckMenuItem(ID_IMAGE_SEPIA3, MF_UNCHECKED);
 	pMenu->CheckMenuItem(ID_IMAGE_ORIGINAL, MF_UNCHECKED);
@@ -590,7 +795,7 @@ void CMFCApplicationTSSDlg::OnImageSepia2()
 	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
 	if (selected != -1 && selected < m_images.size())
 	{
-		CheckSepia(m_images[selected]);
+		CheckSepia(selected);
 	}
 	m_staticImage.Invalidate(TRUE);
 }
@@ -598,8 +803,12 @@ void CMFCApplicationTSSDlg::OnImageSepia2()
 
 void CMFCApplicationTSSDlg::OnImageSepia3()
 {
+	if (bSepia3)return;
 	CMenu* pMenu = GetMenu();
-	pMenu->CheckMenuItem(ID_IMAGE_SEPIA3, (pMenu->GetMenuState(ID_IMAGE_SEPIA3, MF_BYCOMMAND) & MF_CHECKED) ? MF_UNCHECKED : MF_CHECKED);
+	bSepia1 = false;
+	bSepia2 = false;
+	bSepia3 = true;
+	pMenu->CheckMenuItem(ID_IMAGE_SEPIA3,  MF_CHECKED);
 	pMenu->CheckMenuItem(ID_IMAGE_SEPIA2, MF_UNCHECKED);
 	pMenu->CheckMenuItem(ID_IMAGE_SEPIA1, MF_UNCHECKED);
 	pMenu->CheckMenuItem(ID_IMAGE_ORIGINAL, MF_UNCHECKED);
@@ -607,7 +816,7 @@ void CMFCApplicationTSSDlg::OnImageSepia3()
 	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
 	if (selected != -1 && selected < m_images.size())
 	{
-		CheckSepia(m_images[selected]);
+		CheckSepia(selected);
 	}
 	m_staticImage.Invalidate(TRUE);
 }
@@ -616,15 +825,14 @@ void CMFCApplicationTSSDlg::OnImageSepia3()
 void CMFCApplicationTSSDlg::OnImageOriginal()
 {
 	CMenu* pMenu = GetMenu();
-	pMenu->CheckMenuItem(ID_IMAGE_ORIGINAL, (pMenu->GetMenuState(ID_IMAGE_ORIGINAL, MF_BYCOMMAND) & MF_CHECKED) ? MF_UNCHECKED : MF_CHECKED);
+	bSepia1 = false;
+	bSepia2 = false;
+	bSepia3 = false;
+	pMenu->CheckMenuItem(ID_IMAGE_ORIGINAL, MF_CHECKED);
 	pMenu->CheckMenuItem(ID_IMAGE_SEPIA1, MF_UNCHECKED);
 	pMenu->CheckMenuItem(ID_IMAGE_SEPIA3, MF_UNCHECKED);
 	pMenu->CheckMenuItem(ID_IMAGE_SEPIA2, MF_UNCHECKED);
 	
 	int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
-	if (selected != -1 && selected < m_images.size())
-	{
-		CheckSepia(m_images[selected]);
-	}
 	m_staticImage.Invalidate(TRUE);
 }
