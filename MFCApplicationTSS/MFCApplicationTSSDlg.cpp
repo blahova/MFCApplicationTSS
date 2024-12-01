@@ -225,7 +225,7 @@ void CMFCApplicationTSSDlg::CheckHistogram(Img& image)
 
 		img.bStarted = true;
 		std::thread([this, &image, img, pixels, width, height, stride]() mutable {
-			Sleep(5000);
+			//Sleep(5000);
 			CalculateHistogramFromPixels(pixels, width, height, stride, img.m_red, img.m_green, img.m_blue);
 
 			bool bNotify = false;
@@ -390,7 +390,7 @@ void CMFCApplicationTSSDlg::SepiaThread(Img& image, int which)
 {
 	std::thread([this, &image, which]() {
 		image.bSepiaInProgress = true;
-		Sleep(5000);
+		//Sleep(5000);
 		Img img = image;
 		
 

@@ -94,7 +94,6 @@ public:
 	bool bSepia2 = false;
 	bool bSepia3 = false;
 
-	std::mutex sepiaMutex;
 
 
 	void CheckHistogram(Img& image);
