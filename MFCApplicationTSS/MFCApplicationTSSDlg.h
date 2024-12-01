@@ -32,6 +32,7 @@ struct Img
 	bool bStarted = false;
 
 	bool bSepiaInProgress = false;
+
 };
 
 
@@ -82,6 +83,8 @@ public:
 	CRect m_rectImage;
 	CStaticImage m_staticImage;
 	std::vector<Img> m_images;
+
+	std::mutex mutex;
 
 	bool bRedChecked = false;
 	bool bGreenChecked = false;

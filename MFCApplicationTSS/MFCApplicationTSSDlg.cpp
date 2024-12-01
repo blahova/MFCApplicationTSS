@@ -205,13 +205,14 @@ HCURSOR CMFCApplicationTSSDlg::OnQueryDragIcon()
 void CMFCApplicationTSSDlg::CheckHistogram(Img& image)
 {
 	if (image.bCalculated || image.bStarted || !image.m_image || image.m_image->GetLastStatus() != Gdiplus::Ok)
-	{ //kontroluje ci je vypocitany, ci nahodou nema uz zacaty thread, vtedy sa returne hned
+	{
 		return;
 	}
 
 	Img img = image;
+	Gdiplus::Image* imgCopy = img.m_image->Clone();
 
-	Gdiplus::Bitmap* bitmap = static_cast<Gdiplus::Bitmap*>(img.m_image);
+	Gdiplus::Bitmap* bitmap = static_cast<Gdiplus::Bitmap*>(imgCopy);
 	UINT width = bitmap->GetWidth();
 	UINT height = bitmap->GetHeight();
 	Gdiplus::Rect rect(0, 0, width, height);
@@ -223,7 +224,7 @@ void CMFCApplicationTSSDlg::CheckHistogram(Img& image)
 		int stride = bitmapData.Stride;
 
 		img.bStarted = true;
-		std::thread([this, &image, img, pixels, width, height, stride]() mutable{
+		std::thread([this, &image, img, pixels, width, height, stride]() mutable {
 			Sleep(5000);
 			CalculateHistogramFromPixels(pixels, width, height, stride, img.m_red, img.m_green, img.m_blue);
 
@@ -242,6 +243,7 @@ void CMFCApplicationTSSDlg::CheckHistogram(Img& image)
 					//ASSERT(NULL);
 				}
 			}
+
 			if (bNotify)
 			{
 				PostMessage(WM_HISTOGRAM_CALCULATED);
