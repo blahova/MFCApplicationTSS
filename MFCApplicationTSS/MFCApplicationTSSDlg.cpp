@@ -220,7 +220,7 @@ void CMFCApplicationTSSDlg::CheckHistogram(Img& image)
 
 	if (bitmap->LockBits(&rect, Gdiplus::ImageLockModeRead, PixelFormat32bppRGB, &bitmapData) == Gdiplus::Ok)
 	{
-		BYTE* pixels = static_cast<BYTE*>(bitmapData.Scan0);
+		const BYTE* pixels = static_cast<BYTE*>(bitmapData.Scan0);
 		int stride = bitmapData.Stride;
 
 		img.bStarted = true;
@@ -233,7 +233,9 @@ void CMFCApplicationTSSDlg::CheckHistogram(Img& image)
 				std::mutex l;
 				if (img.m_name == image.m_name)
 				{
-					image = img;
+					image.m_red = img.m_red;
+					image.m_green = img.m_green;
+					image.m_blue=img.m_blue;
 					image.bCalculated = true;
 					image.bStarted = false;
 					bNotify = true;
@@ -281,9 +283,9 @@ void CMFCApplicationTSSDlg::CalculateSepia1(Gdiplus::Bitmap* pix)
 		BYTE* pixels = static_cast<BYTE*>(bitmapData.Scan0);
 		int stride = bitmapData.Stride;
 
-		for (int y = 0; y < height; ++y)
+		for (UINT y = 0; y < height; ++y)
 		{
-			for (int x = 0; x < width; ++x)
+			for (UINT x = 0; x < width; ++x)
 			{
 				BYTE B = pixels[y * stride + x * 4];
 				BYTE G = pixels[y * stride + x * 4 + 1];
@@ -317,9 +319,9 @@ void CMFCApplicationTSSDlg::CalculateSepia2(Gdiplus::Bitmap* pix)
 		BYTE* pixels = static_cast<BYTE*>(bitmapData.Scan0);
 		int stride = bitmapData.Stride;
 
-		for (int y = 0; y < height; ++y)
+		for (UINT y = 0; y < height; ++y)
 		{
-			for (int x = 0; x < width; ++x)
+			for (UINT x = 0; x < width; ++x)
 			{
 				BYTE B = pixels[y * stride + x * 4];
 				BYTE G = pixels[y * stride + x * 4 + 1];
@@ -355,9 +357,9 @@ void CMFCApplicationTSSDlg::CalculateSepia3(Gdiplus::Bitmap* pix)
 		BYTE* pixels = static_cast<BYTE*>(bitmapData.Scan0);
 		int stride = bitmapData.Stride;
 
-		for (int y = 0; y < height; ++y)
+		for (UINT y = 0; y < height; ++y)
 		{
-			for (int x = 0; x < width; ++x)
+			for (UINT x = 0; x < width; ++x)
 			{
 				BYTE B = pixels[y * stride + x * 4];
 				BYTE G = pixels[y * stride + x * 4 + 1];
@@ -416,7 +418,10 @@ void CMFCApplicationTSSDlg::SepiaThread(Img& image, int which)
 			std::mutex l;
 			if (img.m_name == image.m_name)
 			{
-				image = img;
+				if (which == 1) image.m_sepia[0] = img.m_sepia[0];
+				else if (which == 2) image.m_sepia[1] = img.m_sepia[1];
+				else image.m_sepia[2] = img.m_sepia[2];
+
 				image.bSepiaInProgress = false;
 				bNotify = true;
 			}
@@ -632,8 +637,8 @@ LRESULT CMFCApplicationTSSDlg::OnDrawHist(WPARAM wParam, LPARAM lParam)
 		return S_OK;
 	}
 
-	const Img& selectedImg = m_images[selected];
-	if (selectedImg.m_red.empty() || selectedImg.m_green.empty() || selectedImg.m_blue.empty())
+	Img& selectedImg = m_images[selected];
+	if (!selectedImg.bCalculated || selectedImg.bStarted)
 	{
 		return S_OK;
 	}
@@ -656,7 +661,8 @@ LRESULT CMFCApplicationTSSDlg::OnDrawHist(WPARAM wParam, LPARAM lParam)
 	if (bRedChecked)
 	{
 		Gdiplus::Pen redPen(Gdiplus::Color::Red);
-		for (int i = 0; i < 256; ++i)
+		int i;
+		for ( i = 0; i < 256; ++i)
 		{
 			int lineHeight = (int)(((double)(selectedImg.m_red[i]) / maxValue) * height);
 			gr.DrawLine(&redPen, i * width / 256, height, i * width / 256, height - lineHeight);
@@ -691,7 +697,7 @@ LRESULT CMFCApplicationTSSDlg::OnDrawHist(WPARAM wParam, LPARAM lParam)
 void CMFCApplicationTSSDlg::OnLvnItemchangedFileList(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
-	Invalidate(TRUE);
+
 	if (bBlueChecked || bRedChecked || bGreenChecked)
 	{
 		int selected = m_fileList.GetNextItem(-1, LVNI_SELECTED);
@@ -699,8 +705,8 @@ void CMFCApplicationTSSDlg::OnLvnItemchangedFileList(NMHDR* pNMHDR, LRESULT* pRe
 		{
 			CheckHistogram(m_images[selected]);
 		}
-		m_staticHistogram.Invalidate(TRUE);
 	}
+	Invalidate(TRUE);
 	*pResult = 0;
 }
 

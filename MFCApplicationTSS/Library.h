@@ -5,8 +5,7 @@
 #include <Windows.h> 
 
 void CalculateHistogramFromPixels(const BYTE* pix, int width, int height, int stride,
-    std::vector<int>& red, std::vector<int>& green,
-    std::vector<int>& blue)
+	std::vector<int>& red, std::vector<int>& green,std::vector<int>& blue)
 {
 	red.assign(256, 0);
 	green.assign(256, 0);

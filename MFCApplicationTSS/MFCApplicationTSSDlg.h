@@ -31,6 +31,7 @@ struct Img
 	bool bCalculated = false;
 	bool bStarted = false;
 
+
 	bool bSepiaInProgress = false;
 
 };
