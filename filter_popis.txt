@@ -1,0 +1,31 @@
+Sépiový filter mení farby v obrázku do odtieňa hnedej (sépiovej). Vo všeobecnosti treba zobrať jednotlivé hodnoty R, G, B každého pixela a podľa potreby upraviť ich pomer tak, aby výsledná farba zodpovedala požiadavkám na zhnednutie.
+
+1.	Postup
+Štandardným postupom na získanie sépiového filtra je úprava farieb pomocou vzťahov:
+New Red = R*.393 + G*.769 + B*.189 
+New Green = R*.349 + G*.686 + B*.168 
+New Blue = R*.272 + G*.534 + B*.131
+https://learn.microsoft.com/en-us/archive/msdn-magazine/2005/january/net-matters-sepia-tone-stringlogicalcomparer-and-more 
+
+2.	Postup
+Ďalšou možnosťou je použitie jasnosti (luminance), aby upravená farba v novom obrázku brala do úvahy jas v danom pixeli a následne upravovala farbu proporčne k nemu. Jasnosť daného pixela určí intenzitu úpravy farby.
+Luminance sa dá nájsť pomocou vzťahu na desaturovanie a znormovanie do intervalu [0,1]:
+luma = (0.3 * R+ 0.59 * G + 0.11 * B) / 255.
+Použitie jasu na úpravu sépiového zafarbenia:
+New Red = (R*.393 + G*.769 + B*.189) * luma
+New Green = (R*.349 + G*.686 + B*.168) * luma
+New Blue = (R*.272 + G*.534 + B*.131) * luma
+Tento postup je inšpirovaný postupom použitým tu https://leware.net/photo/blogSepia.html spolu so vzorcom na vypočítanie jasnosti z Matlabu https://www.mathworks.com/help/images/ref/rgb2ntsc.html .
+3.	Postup
+Sépia ako taká je farba s hodnotami RGB = (112, 66, 20). Inšpirované zafarbovaním čiernobielych obrázkov v článku https://scikit-image.org/docs/stable/auto_examples/color_exposure/plot_tinting_grayscale_images.html môžeme zafarbiť desaturovaný obrázok práve touto sépiovou farbou:
+Brown = (112, 66, 20)
+Grey = 0.3*R + 0.69*G + 0.11*B
+Intensity z [0,1]
+New Red   = grey + (brownR - grey) * intensity
+New Green   = grey + (brownG - grey) * intensity
+New Blue   = grey + (brownB - grey) * intensity
+
+
+
+
+
